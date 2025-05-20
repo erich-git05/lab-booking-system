@@ -14,7 +14,8 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 5000, // Reduced to 5 second timeout
+      timeout: 15000, // Increased to 15 seconds
+      withCredentials: true // Enable credentials
     });
     this.cache = new Map();
     this.setupInterceptors();
@@ -31,6 +32,7 @@ class ApiClient {
         return config;
       },
       (error) => {
+        console.error('Request error:', error);
         return Promise.reject(error);
       }
     );
@@ -41,6 +43,7 @@ class ApiClient {
         return response;
       },
       (error: AxiosError) => {
+        console.error('Response error:', error);
         if (error.response?.status === 401) {
           // Only redirect to login if not already on login page
           if (!window.location.pathname.includes('/login')) {
@@ -75,9 +78,18 @@ class ApiClient {
       const message = error.response?.data?.message || error.message;
 
       if (status === 401) {
+        // Only return session expired if we have a token
+        if (localStorage.getItem('token')) {
+          localStorage.removeItem('token');
+          return {
+            success: false,
+            error: 'Session expired. Please login again.',
+            code: 'AUTH_ERROR'
+          };
+        }
         return {
           success: false,
-          error: 'Session expired. Please login again.',
+          error: 'Invalid email or password',
           code: 'AUTH_ERROR'
         };
       }

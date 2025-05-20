@@ -43,16 +43,16 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Create equipment (admin only)
+// Add new equipment (lab assistant only)
 router.post('/', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      error: 'Not authorized to create equipment'
-    });
-  }
-
   try {
+    if (req.user.role !== 'lab_assistant') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only lab assistants can add equipment'
+      });
+    }
+
     const equipment = new Equipment(req.body);
     await equipment.save();
     res.status(201).json({
@@ -60,44 +60,46 @@ router.post('/', auth, async (req, res) => {
       data: equipment
     });
   } catch (error) {
-    console.error('Error creating equipment:', error);
-    res.status(400).json({
+    console.error('Error adding equipment:', error);
+    res.status(500).json({
       success: false,
-      error: error.message
+      error: 'Failed to add equipment'
     });
   }
 });
 
-// Update equipment (admin only)
+// Update equipment (lab assistant only)
 router.put('/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      error: 'Not authorized to update equipment'
-    });
-  }
-
   try {
+    if (req.user.role !== 'lab_assistant') {
+      return res.status(403).json({
+        success: false,
+        error: 'Only lab assistants can update equipment'
+      });
+    }
+
     const equipment = await Equipment.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true }
     );
+
     if (!equipment) {
       return res.status(404).json({
         success: false,
         error: 'Equipment not found'
       });
     }
+
     res.json({
       success: true,
       data: equipment
     });
   } catch (error) {
     console.error('Error updating equipment:', error);
-    res.status(400).json({
+    res.status(500).json({
       success: false,
-      error: error.message
+      error: 'Failed to update equipment'
     });
   }
 });

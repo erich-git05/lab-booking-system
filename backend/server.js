@@ -25,7 +25,7 @@ app.use(helmet());
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3005'],
+  origin: true, // Allow all origins in development
   credentials: true
 }));
 

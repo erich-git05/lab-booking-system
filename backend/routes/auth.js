@@ -48,7 +48,7 @@ router.post('/login', async (req, res) => {
         role: user.role 
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     console.log('[LOGIN] Success:', email);
@@ -126,7 +126,7 @@ router.post('/register', async (req, res) => {
         role: newUser.role 
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({

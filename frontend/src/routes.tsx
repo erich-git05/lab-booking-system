@@ -53,7 +53,7 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/equipment"
         element={
-          <RoleBasedRoute allowedRoles={['lab_assistant']}>
+          <RoleBasedRoute allowedRoles={['lab_assistant', 'student']}>
             <Equipment />
           </RoleBasedRoute>
         }
@@ -61,9 +61,9 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/equipment/book"
         element={
-          <ProtectedRoute>
+          <RoleBasedRoute allowedRoles={['student']}>
             <EquipmentBooking />
-          </ProtectedRoute>
+          </RoleBasedRoute>
         }
       />
       <Route

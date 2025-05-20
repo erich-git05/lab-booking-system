@@ -26,10 +26,12 @@ import {
 import DashboardLayout from '../components/Layout/DashboardLayout';
 import { Equipment } from '../types';
 import { api } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const EquipmentPage = () => {
+  const { user } = useAuth();
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -40,6 +42,7 @@ const EquipmentPage = () => {
     description: '',
     totalQuantity: 1,
     image: '',
+    available: 1,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,23 +78,41 @@ const EquipmentPage = () => {
         description: equipment.description,
         totalQuantity: equipment.totalQuantity,
         image: equipment.image,
+        available: equipment.available,
       });
     } else {
       setSelectedEquipment(null);
-      setForm({ name: '', category: '', description: '', totalQuantity: 1, image: '' });
+      setForm({ 
+        name: '', 
+        category: '', 
+        description: '', 
+        totalQuantity: 1, 
+        image: '',
+        available: 1,
+      });
     }
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setSelectedEquipment(null);
-    setForm({ name: '', category: '', description: '', totalQuantity: 1, image: '' });
+    setForm({ 
+      name: '', 
+      category: '', 
+      description: '', 
+      totalQuantity: 1, 
+      image: '',
+      available: 1,
+    });
     setOpenDialog(false);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: name === 'totalQuantity' ? Number(value) : value }));
+    setForm((prev) => ({ 
+      ...prev, 
+      [name]: name === 'totalQuantity' || name === 'available' ? Number(value) : value 
+    }));
   };
 
   const handleSubmit = async () => {
@@ -125,18 +146,22 @@ const EquipmentPage = () => {
       equipment.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const isLabAssistant = user?.role === 'lab_assistant';
+
   return (
     <DashboardLayout>
       <Box sx={{ flexGrow: 1, p: 3 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
           <Typography variant="h4">Equipment Management</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Add Equipment
-          </Button>
+          {isLabAssistant && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+            >
+              Add Equipment
+            </Button>
+          )}
         </Stack>
 
         {/* Search Bar */}
@@ -189,22 +214,26 @@ const EquipmentPage = () => {
                           {equipment.category}
                         </Typography>
                       </Box>
-                      <Stack direction="row" spacing={1}>
-                        <IconButton size="small" onClick={() => handleOpenDialog(equipment)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Stack>
+                      {isLabAssistant && (
+                        <Stack direction="row" spacing={1}>
+                          <IconButton size="small" onClick={() => handleOpenDialog(equipment)}>
+                            <EditIcon />
+                          </IconButton>
+                        </Stack>
+                      )}
                     </Box>
                     <Typography variant="body2">{equipment.description}</Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Chip
-                        label={equipment.isAvailable ? 'Available' : 'In Use'}
-                        color={equipment.isAvailable ? 'success' : 'error'}
+                        label={`${equipment.available} available`}
+                        color={equipment.available > 0 ? 'success' : 'error'}
                         size="small"
                       />
-                      <Typography variant="body2">
-                        Available: {equipment.available} / {equipment.totalQuantity}
-                      </Typography>
+                      <Chip
+                        label={`Total: ${equipment.totalQuantity}`}
+                        variant="outlined"
+                        size="small"
+                      />
                     </Stack>
                   </Stack>
                 </CardContent>
@@ -213,7 +242,6 @@ const EquipmentPage = () => {
           </Stack>
         )}
 
-        {/* Add/Edit Equipment Dialog */}
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
           <DialogTitle>
             {selectedEquipment ? 'Edit Equipment' : 'Add New Equipment'}
@@ -247,6 +275,14 @@ const EquipmentPage = () => {
                 required
               />
               <TextField
+                name="image"
+                label="Image URL"
+                value={form.image}
+                onChange={handleFormChange}
+                fullWidth
+                required
+              />
+              <TextField
                 name="totalQuantity"
                 label="Total Quantity"
                 type="number"
@@ -257,19 +293,22 @@ const EquipmentPage = () => {
                 inputProps={{ min: 1 }}
               />
               <TextField
-                name="image"
-                label="Image URL"
-                value={form.image}
+                name="available"
+                label="Available Quantity"
+                type="number"
+                value={form.available}
                 onChange={handleFormChange}
                 fullWidth
+                required
+                inputProps={{ min: 0, max: form.totalQuantity }}
               />
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
+            <Button 
+              onClick={handleSubmit} 
+              variant="contained" 
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Save'}
