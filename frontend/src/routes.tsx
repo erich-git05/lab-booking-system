@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import RoleBasedRoute from './components/RoleBasedRoute';
 
 // Pages
 import Login from './pages/Login';
@@ -52,9 +53,9 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/equipment"
         element={
-          <ProtectedRoute>
+          <RoleBasedRoute allowedRoles={['lab_assistant']}>
             <Equipment />
-          </ProtectedRoute>
+          </RoleBasedRoute>
         }
       />
       <Route
@@ -84,9 +85,9 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/cart"
         element={
-          <ProtectedRoute>
+          <RoleBasedRoute allowedRoles={['student']}>
             <Cart />
-          </ProtectedRoute>
+          </RoleBasedRoute>
         }
       />
       <Route

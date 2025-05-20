@@ -168,9 +168,14 @@ class ApiClient {
     }
   }
 
-  async register(username: string, email: string, password: string): Promise<ApiResponse<{ token: string; user: any }>> {
+  async register(username: string, email: string, password: string, role: string): Promise<ApiResponse<{ token: string; user: any }>> {
     try {
-      const response = await this.api.post<ApiResponse<{ token: string; user: any }>>('/auth/register', { username, email, password });
+      const response = await this.api.post<ApiResponse<{ token: string; user: any }>>('/auth/register', { 
+        username, 
+        email, 
+        password,
+        role 
+      });
       return response.data;
     } catch (error) {
       return this.handleError(error);

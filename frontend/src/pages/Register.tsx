@@ -11,6 +11,10 @@ import {
   Link,
   Paper,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +23,7 @@ interface RegisterFormValues {
   email: string;
   password: string;
   confirmPassword: string;
+  role: 'student' | 'lab_assistant';
 }
 
 const validationSchema = yup.object({
@@ -38,6 +43,10 @@ const validationSchema = yup.object({
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
     .required('Confirm password is required'),
+  role: yup
+    .string()
+    .oneOf(['student', 'lab_assistant'], 'Please select a valid role')
+    .required('Role is required'),
 });
 
 const Register: React.FC = () => {
@@ -51,6 +60,7 @@ const Register: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
+      role: 'student',
     },
     validationSchema: validationSchema,
     onSubmit: async (values: RegisterFormValues) => {
@@ -60,7 +70,8 @@ const Register: React.FC = () => {
         const response = await register(
           registrationData.username,
           registrationData.email,
-          registrationData.password
+          registrationData.password,
+          registrationData.role
         );
         
         if (response.success) {
@@ -152,6 +163,21 @@ const Register: React.FC = () => {
               helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
               margin="normal"
             />
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="role-label">Role</InputLabel>
+              <Select
+                labelId="role-label"
+                id="role"
+                name="role"
+                value={formik.values.role}
+                label="Role"
+                onChange={formik.handleChange}
+                error={formik.touched.role && Boolean(formik.errors.role)}
+              >
+                <MenuItem value="student">Student</MenuItem>
+                <MenuItem value="lab_assistant">Lab Assistant</MenuItem>
+              </Select>
+            </FormControl>
             <Button
               type="submit"
               fullWidth

@@ -2,7 +2,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  role: 'student' | 'lab-assistant' | 'admin';
+  role: 'student' | 'lab_assistant';
   exp?: number; // JWT token expiration timestamp
   avatar?: string;
 }
