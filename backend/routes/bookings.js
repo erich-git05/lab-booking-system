@@ -4,15 +4,32 @@ const Booking = require('../models/Booking');
 const Equipment = require('../models/Equipment');
 const auth = require('../middleware/auth');
 
-// Get all bookings for the current user
+// Helper to map booking _id to id
+function mapBooking(booking) {
+  if (!booking) return booking;
+  const obj = booking.toObject ? booking.toObject() : booking;
+  obj.id = obj._id;
+  delete obj._id;
+  return obj;
+}
+
+// Get all bookings for the current user or all if lab assistant
 router.get('/', auth, async (req, res) => {
   try {
-    const bookings = await Booking.find({ userId: req.user.id })
-      .populate('equipment', 'name description image')
-      .sort({ date: -1, startTime: -1 });
+    let query = {};
+    if (req.user.role === 'lab_assistant') {
+      // Lab assistants see all bookings
+      query = {};
+    } else {
+      // Students see only their own bookings
+      query = { userId: req.user.id };
+    }
+    const bookings = await Booking.find(query)
+      .populate('equipmentId', 'name description image')
+      .sort({ startDate: -1 });
     res.json({
       success: true,
-      data: bookings
+      data: bookings.map(mapBooking)
     });
   } catch (error) {
     console.error('Error fetching bookings:', error);
@@ -67,11 +84,11 @@ router.post('/', auth, async (req, res) => {
     await equipment.updateAvailability(-quantity);
 
     const newBooking = await booking.save();
-    await newBooking.populate('equipment', 'name description image');
+    await newBooking.populate('equipmentId', 'name description image');
 
     res.status(201).json({
       success: true,
-      data: newBooking
+      data: mapBooking(newBooking)
     });
   } catch (error) {
     console.error('Error creating booking:', error);
@@ -82,10 +99,15 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update booking status
+// Update booking status (approve)
 router.patch('/:id', auth, async (req, res) => {
   try {
-    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
+    let booking;
+    if (req.user.role === 'lab_assistant') {
+      booking = await Booking.findById(req.params.id);
+    } else {
+      booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
+    }
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
@@ -95,7 +117,7 @@ router.patch('/:id', auth, async (req, res) => {
     }
 
     // Handle equipment availability based on status change
-    const equipment = await Equipment.findById(booking.equipment);
+    const equipment = await Equipment.findById(booking.equipmentId);
     if (!equipment) {
       return res.status(404).json({
         success: false,
@@ -112,11 +134,11 @@ router.patch('/:id', auth, async (req, res) => {
     }
 
     const updatedBooking = await booking.save();
-    await updatedBooking.populate('equipment', 'name description image');
+    await updatedBooking.populate('equipmentId', 'name description image');
 
     res.json({
       success: true,
-      data: updatedBooking
+      data: mapBooking(updatedBooking)
     });
   } catch (error) {
     console.error('Error updating booking:', error);
@@ -131,7 +153,7 @@ router.patch('/:id', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('equipment', 'name description image');
+      .populate('equipmentId', 'name description image');
 
     if (!booking) {
       return res.status(404).json({
@@ -150,7 +172,7 @@ router.get('/:id', auth, async (req, res) => {
 
     res.json({
       success: true,
-      data: booking
+      data: mapBooking(booking)
     });
   } catch (error) {
     console.error('Error fetching booking:', error);
@@ -161,10 +183,15 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Delete a booking
+// Delete a booking (lab assistant can delete any, student only their own)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
+    let booking;
+    if (req.user.role === 'lab_assistant') {
+      booking = await Booking.findById(req.params.id);
+    } else {
+      booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
+    }
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
     }
