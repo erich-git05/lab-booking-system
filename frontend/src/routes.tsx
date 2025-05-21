@@ -12,7 +12,6 @@ import Equipment from './pages/Equipment';
 import EquipmentBooking from './pages/EquipmentBooking';
 import Schedule from './pages/Schedule';
 import Notifications from './pages/Notifications';
-import Cart from './pages/Cart';
 import Bookings from './pages/Bookings';
 
 // Protected Route Component
@@ -80,14 +79,6 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <Notifications />
           </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/cart"
-        element={
-          <RoleBasedRoute allowedRoles={['student']}>
-            <Cart />
-          </RoleBasedRoute>
         }
       />
       <Route

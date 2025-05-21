@@ -32,6 +32,7 @@ import DashboardLayout from '../components/Layout/DashboardLayout';
 import { api } from '../utils/api';
 import { Equipment, Booking } from '../types';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const EquipmentBooking = () => {
   const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
@@ -45,6 +46,7 @@ const EquipmentBooking = () => {
   const [endTime, setEndTime] = useState<Date | null>(new Date());
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isBooking, setIsBooking] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchEquipment();
@@ -77,27 +79,43 @@ const EquipmentBooking = () => {
       setIsBooking(true);
       setBookingError(null);
 
-      // Format dates for API
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-      const formattedStartTime = format(startTime, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-      const formattedEndTime = format(endTime, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+      // Create Date objects for start and end times
+      const startDate = new Date(selectedDate);
+      startDate.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
 
-      const response = await api.bookEquipment({
+      const endDate = new Date(selectedDate);
+      endDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+
+      // Validate times
+      if (endDate <= startDate) {
+        setBookingError('End time must be after start time');
+        return;
+      }
+
+      const bookingData = {
         equipmentId: selectedEquipment.id,
         quantity,
-        date: formattedDate,
-        startTime: formattedStartTime,
-        endTime: formattedEndTime,
-      });
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      };
+
+      console.log('Sending booking data:', bookingData); // Debug log
+
+      const response = await api.bookEquipment(bookingData);
 
       if (response.success) {
         setBookingDialog(false);
+        // Show success message
+        setError('Booking successful! Check your bookings in the Bookings tab.');
         // Refresh equipment list to update availability
         fetchEquipment();
+        // Navigate to bookings page
+        navigate('/bookings');
       } else {
         setBookingError(response.error || 'Failed to book equipment');
       }
     } catch (err) {
+      console.error('Booking error:', err); // Debug log
       setBookingError('An error occurred while booking equipment');
     } finally {
       setIsBooking(false);

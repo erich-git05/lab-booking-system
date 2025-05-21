@@ -1,14 +1,14 @@
-import { type Metric } from 'web-vitals';
+import { ReportHandler } from 'web-vitals';
 
-const reportWebVitals = async (onPerfEntry?: (metric: Metric) => void): Promise<void> => {
-  if (onPerfEntry && typeof onPerfEntry === 'function') {
+const reportWebVitals = async (onPerfEntry?: ReportHandler) => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
     try {
-      const webVitals = await import('web-vitals');
-      webVitals.onCLS(onPerfEntry);
-      webVitals.onFID(onPerfEntry);
-      webVitals.onFCP(onPerfEntry);
-      webVitals.onLCP(onPerfEntry);
-      webVitals.onTTFB(onPerfEntry);
+      const { getCLS, getFID, getFCP, getLCP, getTTFB } = await import('web-vitals');
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
     } catch (error) {
       console.error('Error loading web-vitals:', error);
     }

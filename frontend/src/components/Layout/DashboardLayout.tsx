@@ -18,13 +18,13 @@ import {
   Badge,
   ListItemButton,
   Theme,
+  Container,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Science as ScienceIcon,
   CalendarToday as CalendarIcon,
-  ShoppingCart as CartIcon,
   Person as PersonIcon,
   Notifications as NotificationsIcon,
   Logout as LogoutIcon,
@@ -73,9 +73,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Equipment', icon: <ScienceIcon />, path: '/equipment' },
+    { text: 'Lab Items', icon: <ScienceIcon />, path: '/equipment' },
     { text: 'Bookings', icon: <CalendarIcon />, path: '/bookings' },
-    { text: 'Cart', icon: <CartIcon />, path: '/cart' },
   ];
 
   const drawer = (
@@ -125,6 +124,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           <Box sx={{ flexGrow: 1 }} />
+          <IconButton
+            color="inherit"
+            onClick={handleLogout}
+            sx={{ mr: 1 }}
+          >
+            <LogoutIcon />
+          </IconButton>
           <IconButton
             color="inherit"
             onClick={handleNotificationMenuOpen}

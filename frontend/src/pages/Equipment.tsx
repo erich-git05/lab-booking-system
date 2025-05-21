@@ -17,18 +17,24 @@ import {
   Avatar,
   CircularProgress,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  SelectChangeEvent,
+  Grid,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Add as AddIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../components/Layout/DashboardLayout';
 import { Equipment } from '../types';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
-
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+import { useNavigate } from 'react-router-dom';
 
 const EquipmentPage = () => {
   const { user } = useAuth();
@@ -36,16 +42,21 @@ const EquipmentPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Omit<Equipment, 'id' | 'isAvailable' | 'createdAt' | 'updatedAt'>>({
     name: '',
     category: '',
     description: '',
     totalQuantity: 1,
     image: '',
     available: 1,
+    itemType: 'Equipment',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchEquipment();
@@ -59,11 +70,11 @@ const EquipmentPage = () => {
       if (res.success && res.data) {
         setEquipmentList(res.data);
       } else {
-        setError(res.error || 'Failed to fetch equipment');
+        setError(res.error || 'Failed to fetch lab items');
       }
     } catch (err) {
-      setError('An error occurred while fetching equipment');
-      console.error('Error fetching equipment:', err);
+      setError('An error occurred while fetching lab items');
+      console.error('Error fetching lab items:', err);
     } finally {
       setLoading(false);
     }
@@ -79,6 +90,7 @@ const EquipmentPage = () => {
         totalQuantity: equipment.totalQuantity,
         image: equipment.image,
         available: equipment.available,
+        itemType: equipment.itemType,
       });
     } else {
       setSelectedEquipment(null);
@@ -89,6 +101,7 @@ const EquipmentPage = () => {
         totalQuantity: 1, 
         image: '',
         available: 1,
+        itemType: 'Equipment',
       });
     }
     setOpenDialog(true);
@@ -103,40 +116,107 @@ const EquipmentPage = () => {
       totalQuantity: 1, 
       image: '',
       available: 1,
+      itemType: 'Equipment',
     });
     setOpenDialog(false);
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent
+  ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ 
       ...prev, 
-      [name]: name === 'totalQuantity' || name === 'available' ? Number(value) : value 
+      [name as string]: name === 'totalQuantity' || name === 'available' ? Number(value) : value 
     }));
   };
 
   const handleSubmit = async () => {
+    // Frontend validation
+    if (!form.name || !form.category || !form.description || !form.image) {
+      setFormError('All fields are required. Please fill in all fields.');
+      return;
+    }
+    setFormError(null);
     try {
       setLoading(true);
       setError(null);
       let res;
+      
+      // Create a temporary ID for optimistic update
+      const tempId = selectedEquipment ? selectedEquipment.id : `temp-${Date.now()}`;
+      const newItem: Equipment = {
+        id: tempId,
+        name: form.name,
+        type: form.category,
+        quantity: form.available,
+        available: form.available,
+        isAvailable: form.available > 0,
+        description: form.description,
+        image: form.image,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
       if (selectedEquipment) {
+        // Optimistically update the UI
+        setEquipmentList(prev => 
+          prev.map(item => item.id === selectedEquipment.id ? { ...item, ...newItem } : item)
+        );
         res = await api.editEquipment(selectedEquipment.id, form);
       } else {
+        // Optimistically add to the UI
+        setEquipmentList(prev => [...prev, newItem]);
         res = await api.addEquipment(form);
       }
+
       if (res.success) {
+        // Update with the real data from the server
         await fetchEquipment();
         handleCloseDialog();
       } else {
-        setError(res.error || 'Failed to save equipment');
+        // Revert the optimistic update if the API call failed
+        await fetchEquipment();
+        setError(res.error || 'Failed to save lab item');
       }
     } catch (err) {
-      setError('An error occurred while saving equipment');
-      console.error('Error saving equipment:', err);
+      // Revert the optimistic update if there was an error
+      await fetchEquipment();
+      setError('An error occurred while saving lab item');
+      console.error('Error saving lab item:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClick = (equipment: Equipment) => {
+    setEquipmentToDelete(equipment);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!equipmentToDelete) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.deleteEquipment(equipmentToDelete.id);
+      if (res.success) {
+        await fetchEquipment();
+        setDeleteDialogOpen(false);
+        setEquipmentToDelete(null);
+      } else {
+        setError(res.error || 'Failed to delete lab item');
+      }
+    } catch (err) {
+      setError('An error occurred while deleting lab item');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setEquipmentToDelete(null);
   };
 
   const filteredEquipment = equipmentList.filter(
@@ -146,20 +226,29 @@ const EquipmentPage = () => {
       equipment.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const groupedEquipment = filteredEquipment.reduce((acc, item) => {
+    const type = item.itemType || 'Other';
+    if (!acc[type]) {
+      acc[type] = [];
+    }
+    acc[type].push(item);
+    return acc;
+  }, {} as Record<string, Equipment[]>);
+
   const isLabAssistant = user?.role === 'lab_assistant';
 
   return (
     <DashboardLayout>
       <Box sx={{ flexGrow: 1, p: 3 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-          <Typography variant="h4">Equipment Management</Typography>
+          <Typography variant="h4">Lab Items Management</Typography>
           {isLabAssistant && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
             >
-              Add Equipment
+              Add Item
             </Button>
           )}
         </Stack>
@@ -169,7 +258,7 @@ const EquipmentPage = () => {
           <CardContent>
             <TextField
               fullWidth
-              placeholder="Search equipment by name, category, or description..."
+              placeholder="Search items by name, category, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
@@ -194,60 +283,149 @@ const EquipmentPage = () => {
             <CircularProgress />
           </Box>
         ) : filteredEquipment.length === 0 ? (
-          <Alert severity="info">No equipment found</Alert>
+          <Alert severity="info">No items found</Alert>
         ) : (
-          <Stack spacing={3}>
-            {filteredEquipment.map((equipment) => (
-              <Card key={equipment.id}>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar
-                        variant="rounded"
-                        src={equipment.image}
-                        alt={equipment.name}
-                        sx={{ width: 64, height: 64 }}
-                      />
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="h6">{equipment.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {equipment.category}
-                        </Typography>
-                      </Box>
-                      {isLabAssistant && (
-                        <Stack direction="row" spacing={1}>
-                          <IconButton size="small" onClick={() => handleOpenDialog(equipment)}>
-                            <EditIcon />
-                          </IconButton>
-                        </Stack>
-                      )}
-                    </Box>
-                    <Typography variant="body2">{equipment.description}</Typography>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip
-                        label={`${equipment.available} available`}
-                        color={equipment.available > 0 ? 'success' : 'error'}
-                        size="small"
-                      />
-                      <Chip
-                        label={`Total: ${equipment.totalQuantity}`}
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Stack>
-                  </Stack>
-                </CardContent>
-              </Card>
+          <Stack spacing={4}>
+            {Object.entries(groupedEquipment).map(([type, items]) => (
+              <Box key={type}>
+                <Typography variant="h5" mb={2}>
+                  {type}
+                </Typography>
+                <Grid container spacing={3}>
+                  {items.map((item) => (
+                    <Grid item xs={12} sm={6} md={4} key={item.id}>
+                      <Card sx={{ 
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        '& .MuiCardContent-root': {
+                          flexGrow: 1,
+                          display: 'flex',
+                          flexDirection: 'column'
+                        }
+                      }}>
+                        <CardContent>
+                          <Stack spacing={2} sx={{ height: '100%' }}>
+                            {/* Image at the top */}
+                            <Box display="flex" justifyContent="center" sx={{ minHeight: 100 }}>
+                              {item.image ? (
+                                <Avatar
+                                  src={item.image}
+                                  alt={item.name}
+                                  sx={{ width: 80, height: 80, mb: 1, borderRadius: 2 }}
+                                  variant="rounded"
+                                />
+                              ) : (
+                                <Avatar sx={{ width: 80, height: 80, mb: 1, borderRadius: 2, bgcolor: 'grey.200', color: 'text.secondary', fontSize: 32 }} variant="rounded">
+                                  {item.name[0]}
+                                </Avatar>
+                              )}
+                            </Box>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                minHeight: 40
+                              }}
+                            >
+                              <Typography variant="h6" sx={{ 
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical'
+                              }}>
+                                {item.name}
+                              </Typography>
+                              {isLabAssistant && (
+                                <Stack direction="row" spacing={1}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenDialog(item)}
+                                  >
+                                    <EditIcon />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeleteClick(item)}
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Stack>
+                              )}
+                            </Box>
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              sx={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: 'vertical',
+                                minHeight: 60
+                              }}
+                            >
+                              {item.description}
+                            </Typography>
+                            <Stack direction="row" spacing={1} sx={{ mt: 'auto' }}>
+                              <Chip
+                                label={item.category}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                              <Chip
+                                label={`Available: ${item.available}/${item.totalQuantity}`}
+                                size="small"
+                                color={item.available > 0 ? 'success' : 'error'}
+                              />
+                            </Stack>
+                            {user?.role === 'student' && (
+                              <Button
+                                variant="contained"
+                                fullWidth
+                                sx={{ mt: 2 }}
+                                onClick={() => navigate(`/equipment/book?item=${item.id}`)}
+                                disabled={item.available <= 0}
+                              >
+                                Book Item
+                              </Button>
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
             ))}
           </Stack>
         )}
 
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
           <DialogTitle>
-            {selectedEquipment ? 'Edit Equipment' : 'Add New Equipment'}
+            {selectedEquipment ? 'Edit Lab Item' : 'Add New Lab Item'}
           </DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 2 }}>
+              {formError && (
+                <Alert severity="error">{formError}</Alert>
+              )}
+              <FormControl fullWidth>
+                <InputLabel>Item Type</InputLabel>
+                <Select
+                  name="itemType"
+                  value={form.itemType}
+                  onChange={handleFormChange}
+                  label="Item Type"
+                >
+                  <MenuItem value="Equipment">Equipment</MenuItem>
+                  <MenuItem value="Tool">Tool</MenuItem>
+                  <MenuItem value="Chemical">Chemical</MenuItem>
+                </Select>
+              </FormControl>
               <TextField
                 name="name"
                 label="Name"
@@ -312,6 +490,19 @@ const EquipmentPage = () => {
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Save'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
+          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogContent>
+            Are you sure you want to delete "{equipmentToDelete?.name}"?
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel}>Cancel</Button>
+            <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={loading}>
+              {loading ? <CircularProgress size={24} /> : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>

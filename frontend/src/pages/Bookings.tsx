@@ -1,99 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Stack,
-  TextField,
-  MenuItem,
-  Button,
+  Alert,
+  Card,
+  CardContent,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Grid,
 } from '@mui/material';
 import {
   Science as ScienceIcon,
   Event as EventIcon,
   AccessTime as AccessTimeIcon,
-  Add as AddIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import DashboardLayout from '../components/Layout/DashboardLayout';
 import { Booking, Equipment } from '../types';
-
-const mockEquipment: Equipment[] = [
-  {
-    id: '1',
-    name: 'Microscope',
-    description: 'High-power microscope for detailed specimen analysis',
-    image: 'https://example.com/microscope.jpg',
-    available: 5,
-    category: 'Optical',
-    totalQuantity: 5,
-    isAvailable: true,
-  },
-  {
-    id: '2',
-    name: 'pH Meter',
-    description: 'Digital pH meter for accurate pH measurements',
-    image: 'https://example.com/ph-meter.jpg',
-    available: 3,
-    category: 'Measurement',
-    totalQuantity: 3,
-    isAvailable: true,
-  },
-];
-
-const mockBookings: Booking[] = [
-  {
-    id: '1',
-    user: 'user1',
-    equipment: '1',
-    quantity: 1,
-    date: '2024-05-20',
-    startTime: '2024-05-20T09:00:00',
-    endTime: '2024-05-20T11:00:00',
-    status: 'confirmed',
-  },
-  {
-    id: '2',
-    user: 'user1',
-    equipment: '2',
-    quantity: 1,
-    date: '2024-05-21',
-    startTime: '2024-05-21T14:00:00',
-    endTime: '2024-05-21T16:00:00',
-    status: 'pending',
-  },
-];
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import { EventContentArg } from '@fullcalendar/core';
 
 const BookingsPage = () => {
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedStartTime, setSelectedStartTime] = useState('');
-  const [selectedEndTime, setSelectedEndTime] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  const handleOpenDialog = () => {
-    setOpenDialog(true);
+  useEffect(() => {
+    fetchBookings();
+    fetchEquipment();
+  }, []);
+
+  const fetchBookings = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        setBookings(response.data.data || []);
+      } else {
+        setError(response.data.error || 'Failed to fetch bookings');
+      }
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
+      setError('Failed to fetch bookings');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setSelectedEquipment('');
-    setSelectedDate('');
-    setSelectedStartTime('');
-    setSelectedEndTime('');
-    setQuantity(1);
+  const fetchEquipment = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/equipment');
+      setEquipment(response.data.data || []);
+    } catch (err) {
+      setError('Failed to fetch equipment');
+      console.error('Error fetching equipment:', err);
+    }
   };
 
-  const handleCreateBooking = () => {
-    // TODO: Implement booking creation
-    handleCloseDialog();
+  const getEquipmentName = (equipmentId: string) => {
+    const item = equipment.find(e => e.id === equipmentId);
+    return item ? item.name : 'Unknown Equipment';
   };
 
   const getStatusColor = (status: Booking['status']) => {
@@ -111,145 +86,142 @@ const BookingsPage = () => {
     }
   };
 
-  const getEquipmentName = (equipmentId: string | Equipment) => {
-    if (typeof equipmentId === 'string') {
-      const equipment = mockEquipment.find(e => e.id === equipmentId);
-      return equipment ? equipment.name : 'Unknown Equipment';
-    }
-    return equipmentId.name;
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchBookings();
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <Box sx={{ p: 3 }}>
+          <Typography>Loading...</Typography>
+        </Box>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <Box sx={{ p: 3 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-          <Typography variant="h4">My Bookings</Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenDialog}
-          >
-            New Booking
-          </Button>
-        </Stack>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-        <Stack spacing={3}>
-          {mockBookings.map((booking) => (
-            <Card key={booking.id}>
-              <CardContent>
-                <Stack spacing={2}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <ScienceIcon />
-                        <Typography variant="h6">
-                          {getEquipmentName(booking.equipment)}
-                        </Typography>
+        {user?.role === 'student' && (
+          <>
+            <Typography variant="h4" mb={3}>
+              My Bookings
+            </Typography>
+            <Grid container spacing={3} mb={6}>
+              {bookings.map((booking) => (
+                <Grid item xs={12} md={6} key={booking.id}>
+                  <Card>
+                    <CardContent>
+                      <Stack spacing={2}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          <Box>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <ScienceIcon />
+                              <Typography variant="h6">
+                                {getEquipmentName(booking.equipmentId)}
+                              </Typography>
+                            </Stack>
+                            <Typography variant="body2" color="text.secondary">
+                              Quantity: {booking.quantity}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={booking.status}
+                            color={getStatusColor(booking.status)}
+                            size="small"
+                          />
+                        </Box>
+
+                        <Stack spacing={1}>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <EventIcon fontSize="small" color="action" />
+                            <Typography variant="body2">
+                              {format(new Date(booking.startDate), 'MMM d, yyyy')}
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <AccessTimeIcon fontSize="small" color="action" />
+                            <Typography variant="body2">
+                              {format(new Date(booking.startDate), 'h:mm a')} -{' '}
+                              {format(new Date(booking.endDate), 'h:mm a')}
+                            </Typography>
+                          </Stack>
+                        </Stack>
                       </Stack>
-                      <Typography variant="body2" color="text.secondary">
-                        Quantity: {booking.quantity}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={booking.status}
-                      color={getStatusColor(booking.status)}
-                      size="small"
-                    />
-                  </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+              {bookings.length === 0 && (
+                <Grid item xs={12}>
+                  <Alert severity="info">
+                    You haven't made any bookings yet. Book items from the Lab Items page.
+                  </Alert>
+                </Grid>
+              )}
+            </Grid>
+          </>
+        )}
+        
+        <Typography variant="h4" mb={3}>
+          Bookings Calendar
+        </Typography>
 
-                  <Stack spacing={1}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <EventIcon fontSize="small" color="action" />
-                      <Typography variant="body2">
-                        {format(new Date(booking.date), 'MMM d, yyyy')}
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <AccessTimeIcon fontSize="small" color="action" />
-                      <Typography variant="body2">
-                        {format(new Date(booking.startTime), 'h:mm a')} -{' '}
-                        {format(new Date(booking.endTime), 'h:mm a')}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-
-        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>Create New Booking</DialogTitle>
-          <DialogContent>
-            <Stack spacing={3} sx={{ mt: 2 }}>
-              <TextField
-                select
-                label="Equipment"
-                value={selectedEquipment}
-                onChange={(e) => setSelectedEquipment(e.target.value)}
-                fullWidth
-              >
-                {mockEquipment.map((equipment) => (
-                  <MenuItem key={equipment.id} value={equipment.id}>
-                    {equipment.name} - {equipment.category}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <TextField
-                type="date"
-                label="Date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-
-              <TextField
-                type="time"
-                label="Start Time"
-                value={selectedStartTime}
-                onChange={(e) => setSelectedStartTime(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-
-              <TextField
-                type="time"
-                label="End Time"
-                value={selectedEndTime}
-                onChange={(e) => setSelectedEndTime(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-
-              <TextField
-                type="number"
-                label="Quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value))}
-                fullWidth
-                inputProps={{ min: 1 }}
-              />
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button
-              variant="contained"
-              onClick={handleCreateBooking}
-              disabled={!selectedEquipment || !selectedDate || !selectedStartTime || !selectedEndTime}
-            >
-              Create Booking
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <div className="purple-calendar">
+          <FullCalendar
+            plugins={[dayGridPlugin]}
+            initialView="dayGridMonth"
+            height={500}
+            events={bookings.map((booking) => ({
+              title: `${getEquipmentName(booking.equipmentId)} (${booking.quantity})`,
+              start: booking.startDate,
+              end: booking.endDate,
+              color: booking.status === 'confirmed' ? '#4caf50' : 
+                     booking.status === 'pending' ? '#ff9800' : 
+                     booking.status === 'cancelled' ? '#f44336' : '#2196f3',
+              textColor: '#fff',
+              extendedProps: {
+                status: booking.status,
+                quantity: booking.quantity
+              }
+            }))}
+            eventContent={(eventInfo: EventContentArg) => (
+              <div style={{ padding: '2px 4px' }}>
+                <div style={{ fontWeight: 'bold' }}>{eventInfo.event.title}</div>
+                <div style={{ fontSize: '0.8em' }}>{eventInfo.event.extendedProps.status}</div>
+              </div>
+            )}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,dayGridWeek,dayGridDay'
+            }}
+            dayMaxEventRows={true}
+            eventDisplay="block"
+            eventBackgroundColor="#8e24aa"
+            eventBorderColor="#6a1b9a"
+            eventTextColor="#fff"
+            selectable={true}
+            selectMirror={true}
+            themeSystem="standard"
+            contentHeight={500}
+            eventClassNames={() => 'purple-event'}
+          />
+        </div>
       </Box>
     </DashboardLayout>
   );

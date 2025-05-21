@@ -1,57 +1,53 @@
+// CartItem interface removed
+// ... existing code ...
+
+// User type
 export interface User {
   id: string;
   username: string;
   email: string;
-  role: 'student' | 'lab_assistant';
-  exp?: number; // JWT token expiration timestamp
+  role: 'student' | 'lab_assistant' | 'admin';
   avatar?: string;
+  exp?: number;
 }
 
+// Equipment type
 export interface Equipment {
   id: string;
   name: string;
-  description: string;
-  image: string;
+  type: string;
+  quantity: number;
   available: number;
-  category: string;
-  totalQuantity: number;
-  isAvailable?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
+  imageUrl?: string;
+  [key: string]: any; // for extra fields
 }
 
+// Booking type
 export interface Booking {
   id: string;
-  user: string;
-  equipment: string | Equipment;
-  quantity: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  createdAt?: string;
-  updatedAt?: string;
+  equipmentId: string;
+  userId: string;
+  startDate: string;
+  endDate: string;
+  status: 'booked' | 'in_use' | 'returned' | 'cancelled' | 'confirmed' | 'pending' | 'completed';
+  [key: string]: any;
 }
 
+// Notification type
 export interface Notification {
   id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
   userId: string;
+  message: string;
+  date: string;
+  read: boolean;
 }
 
-export interface CartItem {
-  id: string;
-  type: 'equipment' | 'chemical';
-  name: string;
-  quantity: number;
-}
-
-export interface ApiResponse<T> {
+// Generic API response type
+export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
-  code?: 'AUTH_ERROR' | 'FORBIDDEN' | 'API_ERROR' | 'UNKNOWN_ERROR';
-} 
+  code?: string;
+}
+
+export {}; 

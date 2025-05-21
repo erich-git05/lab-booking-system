@@ -64,12 +64,25 @@ const Login: React.FC = () => {
     <Container component="main" maxWidth="xs">
       <Box
         sx={{
-          marginTop: 8,
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
+        <Typography
+          component="h1"
+          variant="h3"
+          sx={{
+            mb: 4,
+            fontWeight: 800,
+            color: 'primary.main',
+            textAlign: 'center',
+          }}
+        >
+          Welcome to the Lab Portal!
+        </Typography>
         <Paper
           elevation={3}
           sx={{

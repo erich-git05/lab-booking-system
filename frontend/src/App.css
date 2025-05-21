@@ -43,3 +43,17 @@
 }
 
 /* Remove animated science background and floating objects styles */
+
+.purple-calendar .fc-toolbar-title,
+.purple-calendar .fc-button,
+.purple-calendar .fc-daygrid-day.fc-day-today {
+  color: #8e24aa !important;
+}
+.purple-calendar .fc-button-primary {
+  background-color: #8e24aa !important;
+  border-color: #6a1b9a !important;
+}
+.purple-calendar .fc-daygrid-day.fc-day-today {
+  background-color: #f3e5f5 !important;
+  border-radius: 6px;
+}

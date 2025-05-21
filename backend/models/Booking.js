@@ -1,14 +1,22 @@
 const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
-  user: {
+  equipmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Equipment',
+    required: true
+  },
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  equipment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Equipment',
+  startDate: {
+    type: Date,
+    required: true
+  },
+  endDate: {
+    type: Date,
     required: true
   },
   quantity: {
@@ -16,21 +24,9 @@ const bookingSchema = new mongoose.Schema({
     required: true,
     min: 1
   },
-  date: {
-    type: Date,
-    required: true
-  },
-  startTime: {
-    type: Date,
-    required: true
-  },
-  endTime: {
-    type: Date,
-    required: true
-  },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
     default: 'pending'
   }
 }, {
@@ -39,8 +35,8 @@ const bookingSchema = new mongoose.Schema({
 
 // Validate that end time is after start time
 bookingSchema.pre('save', function(next) {
-  if (this.endTime <= this.startTime) {
-    next(new Error('End time must be after start time'));
+  if (this.endDate <= this.startDate) {
+    next(new Error('End date must be after start date'));
   }
   next();
 });
@@ -48,7 +44,7 @@ bookingSchema.pre('save', function(next) {
 // Method to check if booking overlaps with existing bookings
 bookingSchema.statics.checkOverlap = async function(equipmentId, date, startTime, endTime) {
   const overlappingBooking = await this.findOne({
-    equipment: equipmentId,
+    equipmentId: equipmentId,
     date: date,
     status: { $in: ['pending', 'confirmed'] },
     $or: [

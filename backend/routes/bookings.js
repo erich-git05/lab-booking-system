@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 // Get all bookings for the current user
 router.get('/', auth, async (req, res) => {
   try {
-    const bookings = await Booking.find({ user: req.user.id })
+    const bookings = await Booking.find({ userId: req.user.id })
       .populate('equipment', 'name description image')
       .sort({ date: -1, startTime: -1 });
     res.json({
@@ -26,7 +26,7 @@ router.get('/', auth, async (req, res) => {
 // Create a new booking
 router.post('/', auth, async (req, res) => {
   try {
-    const { equipmentId, quantity, date, startTime, endTime } = req.body;
+    const { equipmentId, quantity, startDate, endDate } = req.body;
 
     // Check if equipment exists and has enough availability
     const equipment = await Equipment.findById(equipmentId);
@@ -44,34 +44,34 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Check for booking overlaps
-    const hasOverlap = await Booking.checkOverlap(equipmentId, date, startTime, endTime);
-    if (hasOverlap) {
-      return res.status(400).json({
-        success: false,
-        error: 'Time slot overlaps with existing booking'
-      });
-    }
+    // Check for booking overlaps (optional: implement if needed)
+    // const hasOverlap = await Booking.checkOverlap(equipmentId, startDate, endDate);
+    // if (hasOverlap) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: 'Time slot overlaps with existing booking'
+    //   });
+    // }
 
     // Create booking
     const booking = new Booking({
-      user: req.user.id,
-      equipment: equipmentId,
+      userId: req.user.id,
+      equipmentId,
       quantity,
-      date,
-      startTime,
-      endTime
+      startDate,
+      endDate,
+      status: 'pending'
     });
 
     // Update equipment availability
     await equipment.updateAvailability(-quantity);
 
-    await booking.save();
-    await booking.populate('equipment', 'name description image');
+    const newBooking = await booking.save();
+    await newBooking.populate('equipment', 'name description image');
 
     res.status(201).json({
       success: true,
-      data: booking
+      data: newBooking
     });
   } catch (error) {
     console.error('Error creating booking:', error);
@@ -83,24 +83,15 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update booking status
-router.patch('/:id/status', auth, async (req, res) => {
+router.patch('/:id', auth, async (req, res) => {
   try {
-    const { status } = req.body;
-    const booking = await Booking.findById(req.params.id);
-
+    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        error: 'Booking not found'
-      });
+      return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Check if user is authorized to update the booking
-    if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        error: 'Not authorized to update this booking'
-      });
+    if (req.body.status) {
+      booking.status = req.body.status;
     }
 
     // Handle equipment availability based on status change
@@ -112,21 +103,20 @@ router.patch('/:id/status', auth, async (req, res) => {
       });
     }
 
-    if (status === 'cancelled' && booking.status !== 'cancelled') {
+    if (booking.status === 'cancelled' && booking.status !== 'cancelled') {
       // Return equipment to available pool
       await equipment.updateAvailability(booking.quantity);
-    } else if (status === 'completed' && booking.status === 'confirmed') {
+    } else if (booking.status === 'completed' && booking.status === 'confirmed') {
       // Return equipment to available pool
       await equipment.updateAvailability(booking.quantity);
     }
 
-    booking.status = status;
-    await booking.save();
-    await booking.populate('equipment', 'name description image');
+    const updatedBooking = await booking.save();
+    await updatedBooking.populate('equipment', 'name description image');
 
     res.json({
       success: true,
-      data: booking
+      data: updatedBooking
     });
   } catch (error) {
     console.error('Error updating booking:', error);
@@ -151,7 +141,7 @@ router.get('/:id', auth, async (req, res) => {
     }
 
     // Check if user is authorized to view the booking
-    if (booking.user.toString() !== req.user.id && req.user.role !== 'admin') {
+    if (booking.userId.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Not authorized to view this booking'
@@ -168,6 +158,21 @@ router.get('/:id', auth, async (req, res) => {
       success: false,
       error: 'Failed to fetch booking'
     });
+  }
+});
+
+// Delete a booking
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    await booking.remove();
+    res.json({ message: 'Booking deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

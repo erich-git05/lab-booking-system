@@ -10,7 +10,6 @@ const Register = React.lazy(() => import('../pages/Register'));
 const Dashboard = React.lazy(() => import('../pages/Dashboard'));
 const Equipment = React.lazy(() => import('../pages/Equipment'));
 const Bookings = React.lazy(() => import('../pages/Bookings'));
-const Cart = React.lazy(() => import('../pages/Cart'));
 const Profile = React.lazy(() => import('../pages/Profile'));
 
 // Loading component
@@ -68,7 +67,6 @@ const AppRoutes: React.FC = () => {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/equipment" element={<ProtectedRoute><Equipment /></ProtectedRoute>} />
         <Route path="/bookings" element={<ProtectedRoute><Bookings /></ProtectedRoute>} />
-        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         {/* Default Route */}

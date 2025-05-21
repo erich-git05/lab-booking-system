@@ -4,8 +4,9 @@
   "description": "Backend for Lab Portal System",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node --max-old-space-size=8192 server.js",
+    "dev": "nodemon --max-old-space-size=8192 server.js",
+    "prod": "node --max-old-space-size=8192 --optimize-for-size server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
